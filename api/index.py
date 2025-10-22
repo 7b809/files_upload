@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_cors import CORS
-from utils.github_upload import upload_to_github
+from .utils.github_upload import upload_to_github
 import os,json
 
 # ===========================
