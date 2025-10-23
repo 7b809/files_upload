@@ -1,45 +1,48 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
+import os, base64, json
+
 from .utils.github_upload import upload_to_github
-import os,json
+from .utils.file_utils import save_chunk, merge_chunks
 
-# ===========================
-# 🔒 Secrets Configuration
-# ===========================
-app_data = os.getenv("app_data")
-if not app_data:
-    raise RuntimeError("Environment variable 'app_data' not found!")
-
-secrets = json.loads(app_data)
 app = Flask(__name__)
-app.secret_key = secrets["secret_key"]
+CORS(app)
 
-# Enable CORS for all routes and origins
-CORS(app, resources={r"/*": {"origins": "*"}})
+# Load secrets from environment
+secrets = json.loads(os.getenv("app_data", "{}"))
+app.secret_key = secrets.get("secret_key", "default")
 
-@app.route("/", methods=["GET", "POST"])
+UPLOAD_DIR = "/tmp/uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+
+@app.route("/", methods=["GET"])
 def index():
-    if request.method == "POST":
-        zip_file = request.files.get("zip_file")
-
-        if not zip_file:
-            flash("ZIP file is required!", "danger")
-            return redirect(url_for("index"))
-
-        # Use secrets object for GitHub credentials
-        github_repo = secrets["github_repo"]
-        github_branch = secrets["branch"]
-        pat_token = secrets["pat_token"]
-
-        # Upload file to GitHub
-        result = upload_to_github(zip_file, github_repo, github_branch, pat_token)
-
-        if result["success"]:
-            flash("File uploaded successfully!", "success")
-        else:
-            flash(f"Failed to upload: {result['error']}", "danger")
-        
-        return redirect(url_for("index"))
-
     return render_template("index.html")
 
+
+@app.route("/upload_chunk", methods=["POST"])
+def upload_chunk():
+    """Receive one 50KB base64 chunk"""
+    data = request.json
+    filename = data["filename"]
+    chunk_data = data["data"]
+    chunk_number = int(data["chunk_number"])
+    total_chunks = int(data["total_chunks"])
+
+    save_chunk(filename, chunk_number, chunk_data, UPLOAD_DIR)
+
+    # Check if all chunks are received
+    all_received = merge_chunks(filename, total_chunks, UPLOAD_DIR)
+
+    if all_received:
+        zip_path = os.path.join(UPLOAD_DIR, filename)
+        result = upload_to_github(
+            open(zip_path, "rb"), 
+            secrets["github_repo"], 
+            secrets["branch"], 
+            secrets["pat_token"]
+        )
+        return jsonify({"status": "complete", "result": result})
+
+    return jsonify({"status": "in_progress", "chunk": chunk_number})
