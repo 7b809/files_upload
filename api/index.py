@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from io import BytesIO
 import base64, json, os
@@ -13,7 +13,7 @@ if not app_data:
 
 secrets = json.loads(app_data)
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder="templates")  # 👈 use templates folder
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 
@@ -56,6 +56,9 @@ def upload_zip():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+# ==================================
+# 🏠 Home route — Serve index.html
+# ==================================
 @app.route("/")
 def home():
-    return jsonify({"message": "In-memory uploader active on Vercel!"})
+    return render_template("index.html")  # 👈 renders HTML from /templates/index.html
