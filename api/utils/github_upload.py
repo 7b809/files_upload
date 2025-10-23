@@ -7,7 +7,6 @@ def upload_to_github(zip_file, repo, branch, token):
         content = base64.b64encode(zip_file.read()).decode("utf-8")
         url = f"https://api.github.com/repos/{repo}/contents/{file_path}"
 
-        # Check if file exists
         response = requests.get(url, headers={"Authorization": f"token {token}"})
         sha = response.json().get("sha") if response.status_code == 200 else None
 
@@ -16,7 +15,6 @@ def upload_to_github(zip_file, repo, branch, token):
             "content": content,
             "branch": branch
         }
-
         if sha:
             data["sha"] = sha  # update existing file
 
