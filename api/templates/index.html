@@ -45,49 +45,15 @@
       {% endif %}
     {% endwith %}
 
-   <input type="file" id="fileInput" accept=".zip" />
-<button onclick="uploadFile()">Upload</button>
-<progress id="progress" value="0" max="100"></progress>
-
-<script>
-async function uploadFile() {
-  const file = document.getElementById('fileInput').files[0];
-  if (!file) return alert('Select a ZIP first');
-
-  const chunkSize = 50 * 1024; // 50 KB
-  const totalChunks = Math.ceil(file.size / chunkSize);
-
-  for (let i = 0; i < totalChunks; i++) {
-    const start = i * chunkSize;
-    const end = Math.min(file.size, start + chunkSize);
-    const blob = file.slice(start, end);
-    const base64 = await blobToBase64(blob);
-
-    await fetch("/upload_chunk", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        filename: file.name,
-        chunk_number: i,
-        total_chunks: totalChunks,
-        data: base64.split(",")[1],
-      }),
-    });
-
-    document.getElementById('progress').value = ((i + 1) / totalChunks) * 100;
-  }
-
-  alert("Upload complete!");
-}
-
-function blobToBase64(blob) {
-  return new Promise((resolve, _) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result);
-    reader.readAsDataURL(blob);
-  });
-}
-</script>
+    <!-- Upload Form -->
+    <form method="POST" enctype="multipart/form-data">
+      <div class="mb-3">
+        <label for="zip_file" class="form-label">Select ZIP File</label>
+        <input class="form-control" type="file" name="zip_file" id="zip_file" accept=".zip" required>
+      </div>
+      <button type="submit" class="btn btn-primary btn-upload">Upload</button>
+    </form>
+  </div>
 
   <!-- Bootstrap JS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
