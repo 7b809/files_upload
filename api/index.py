@@ -2,8 +2,8 @@ from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from io import BytesIO
 import base64, json, os
-from utils.github_upload import upload_to_github
-from utils.crypto_utils import encrypt_bytes
+from api.utils.github_upload import upload_to_github
+from api.utils.crypto_utils import encrypt_bytes
 from dotenv import load_dotenv
 from werkzeug.datastructures import FileStorage
 
