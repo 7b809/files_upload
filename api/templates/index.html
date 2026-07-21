@@ -41,6 +41,10 @@
         margin-top: 15px;
         display: none;
       }
+
+      .secure-note {
+        font-size: 0.85rem;
+      }
     </style>
   </head>
 
@@ -53,6 +57,37 @@
           <label for="file_input" class="form-label">Select File</label>
 
           <input class="form-control" type="file" id="file_input" required />
+        </div>
+
+        <!-- Secure upload option -->
+        <div class="form-check mb-3">
+          <input class="form-check-input" type="checkbox" id="secure_upload" />
+
+          <label class="form-check-label" for="secure_upload">
+            Secure file upload encryption
+            <span class="text-muted d-block secure-note">
+              Only eligible for ZIP files
+            </span>
+          </label>
+        </div>
+
+        <!-- Encryption string input -->
+        <div class="mb-3" id="encryptionBox" style="display: none">
+          <label for="encryption_key" class="form-label">
+            Encryption String
+          </label>
+
+          <input
+            class="form-control"
+            type="password"
+            id="encryption_key"
+            placeholder="Enter encryption string"
+          />
+
+          <div class="form-text">
+            Keep this string safe. The same string is required to decrypt the
+            ZIP file later.
+          </div>
         </div>
 
         <button type="submit" class="btn btn-primary btn-upload">Upload</button>
@@ -83,6 +118,22 @@
 
       const statusDiv = document.getElementById("status");
 
+      const secureUpload = document.getElementById("secure_upload");
+
+      const encryptionBox = document.getElementById("encryptionBox");
+
+      const encryptionKey = document.getElementById("encryption_key");
+
+      // Show or hide encryption string field
+      secureUpload.addEventListener("change", () => {
+        if (secureUpload.checked) {
+          encryptionBox.style.display = "block";
+        } else {
+          encryptionBox.style.display = "none";
+          encryptionKey.value = "";
+        }
+      });
+
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
 
@@ -90,8 +141,22 @@
 
         if (!file) {
           alert("Please select a file!");
-
           return;
+        }
+
+        const isSecureUpload = secureUpload.checked;
+
+        // Validate ZIP file only for secure encrypted upload
+        if (isSecureUpload) {
+          if (!file.name.toLowerCase().endsWith(".zip")) {
+            alert("Secure encrypted upload is only allowed for ZIP files.");
+            return;
+          }
+
+          if (!encryptionKey.value.trim()) {
+            alert("Please enter an encryption string.");
+            return;
+          }
         }
 
         statusDiv.textContent = "";
@@ -106,29 +171,35 @@
 
         progressBar.classList.remove("bg-danger");
 
-        // Convert file to base64
-        const base64Data = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-
-          reader.onload = () => resolve(reader.result.split(",")[1]);
-
-          reader.onerror = reject;
-
-          reader.readAsDataURL(file);
-        });
-
-        const payload = {
-          file_name: file.name,
-
-          total_chunks: 1,
-
-          chunks: [base64Data],
-        };
-
         try {
+          // Convert file to base64
+          const base64Data = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+
+            reader.onload = () => resolve(reader.result.split(",")[1]);
+
+            reader.onerror = reject;
+
+            reader.readAsDataURL(file);
+          });
+
+          const payload = {
+            file_name: file.name,
+
+            total_chunks: 1,
+
+            chunks: [base64Data],
+
+            secure_upload: isSecureUpload,
+
+            encryption_key: isSecureUpload ? encryptionKey.value : "",
+          };
+
           progressBar.style.width = "50%";
 
-          progressBar.textContent = "Uploading...";
+          progressBar.textContent = isSecureUpload
+            ? "Encrypting and uploading..."
+            : "Uploading...";
 
           const res = await fetch("/upload_file", {
             method: "POST",
@@ -149,8 +220,11 @@
 
             progressBar.classList.add("bg-success");
 
+            const uploadedFileName = data.uploaded_file || file.name;
+
             statusDiv.innerHTML = `<div class="alert alert-success mt-3">
-              ✅ Upload successful!
+              ✅ Upload successful!<br/>
+              Uploaded file: <strong>${uploadedFileName}</strong>
             </div>`;
           } else {
             throw new Error(data.error || "Unknown error");
